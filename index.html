@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Healthcare Chatbot</title>
+    <style>
+        /* General Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Body Styles */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* Chat Container */
+        .chat-container {
+            width: 600px;
+            height: 800px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            /* Add shadow to the border */
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Chat Header */
+        .chat-header {
+            background-color: #4caf50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+        }
+
+        /* Chat Body */
+        .chat-body {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-image: url(img.jpg);
+
+        }
+
+        /* Chat Footer */
+        .chat-footer {
+            display: flex;
+            padding: 15px;
+            background-color: #eeeeee;
+            border-top: 1px solid #dddddd;
+            align-items: center;
+        }
+
+        #user-input {
+            flex: 1;
+            padding: 15px;
+            border: 1px solid #cccccc;
+            border-radius: 5px;
+            font-size: 18px;
+        }
+
+        #send-btn {
+            margin-left: 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 15px 20px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        #send-btn:hover {
+            background-color: #45a049;
+        }
+
+        /* Messages */
+        .bot-message, .user-message {
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 70%;
+            word-wrap: break-word;
+            font-size: 18px;
+        }
+
+        .bot-message {
+            background-color: #4caf50;
+            color: white;
+            align-self: flex-start;
+        }
+
+        .user-message {
+            background-color: #e0e0e0;
+            color: black;
+            align-self: flex-end;
+        }
+
+        /* Dropdown or radio buttons for category selection */
+        .category-selection {
+            margin-bottom: 15px;
+        }
+
+        #category-select {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h2>Medical Healthcare Assistant</h2>
+        </div>
+        <div class="chat-body" id="chat-body">
+            <!-- Messages will appear here -->
+            <div class="bot-message">
+                Hi! I’m here to help you. Describe your symptoms
+            </div>
+        </div>
+        <div class="chat-footer">
+            <!-- Category Selection -->
+            <div class="category-selection">
+                <select id="category-select">
+                    <option value="">Select Category</option>
+                    <option value="Disease">Disease</option>
+                    <option value="Symptoms">Symptoms</option>
+                </select>
+            </div>
+            <input type="text" id="user-input" placeholder="Type your message here...">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+<script>
+    
+    let thinkingBubble = null;  // To track the current thinking bubble
+
+    async function fetchGeminiResponse(userText, category) {
+        try {
+            // Add user message to the chat
+            // addMessage(userText, 'user');
+
+            // If there is an existing thinking bubble, remove it before adding a new one
+            if (thinkingBubble) {
+                thinkingBubble.remove();
+            }
+
+            // Add "Thinking..." bubble
+            thinkingBubble = addMessage("Thinking...", 'bot');
+
+            // Send the POST request to Flask
+            const response = await fetch("http://127.0.0.1:5000/generate", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ input: userText, category: category }) // Send user query and category to Flask
+            });
+
+            if (!response.ok) {
+                const errorDetails = await response.json();
+                throw new Error(`API Error: ${errorDetails.error || response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // Remove the "Thinking..." bubble when we get the response
+            if (thinkingBubble) {
+                thinkingBubble.remove();
+            }
+
+            // Show the bot's response
+            const botReply = data.response || "I couldn't generate a response.";
+            addMessage(botReply, 'bot');
+
+        } catch (error) {
+            console.error("Fetch Error:", error);
+
+            // If there's an error, remove the "Thinking..." bubble and show the error
+            if (thinkingBubble) {
+                thinkingBubble.remove();
+            }
+            addMessage("Sorry, there was an error fetching the response.", 'bot');
+        }
+    }
+
+    // Function to add a message to the chat
+    function addMessage(message, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add(sender === 'bot' ? 'bot-message' : 'user-message');
+        messageDiv.innerHTML = message;
+        chatBody.appendChild(messageDiv);
+        chatBody.scrollTop = chatBody.scrollHeight; // Scroll to the bottom
+        return messageDiv; // Return the message element for future reference
+    }
+
+    // Example of using fetchGeminiResponse in your chat logic
+    const sendBtn = document.getElementById('send-btn');
+    const userInput = document.getElementById('user-input');
+    const chatBody = document.getElementById('chat-body');
+    const categorySelect = document.getElementById('category-select');
+
+    sendBtn.addEventListener('click', async () => {
+        const userText = userInput.value.trim();
+        const selectedCategory = categorySelect.value;
+
+        if (!userText || !selectedCategory) {
+            alert('Please select a category and enter a message.');
+            return;
+        }
+
+        addMessage(userText, 'user');
+        userInput.value = '';
+        await fetchGeminiResponse(userText, selectedCategory);
+    });
+
+    // Send message when "Enter" key is pressed
+    userInput.addEventListener('keydown', async (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) { // Trigger only on Enter (not Shift + Enter)
+            const userText = userInput.value.trim();
+            const selectedCategory = categorySelect.value;
+
+            if (!userText || !selectedCategory) {
+                alert('Please select a category and enter a message.');
+                return;
+            }
+
+            addMessage(userText, 'user');
+            userInput.value = '';
+            await fetchGeminiResponse(userText, selectedCategory);
+        }
+    });
+
+</script>
+
+</body>
+</html>
